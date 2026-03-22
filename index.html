@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studio J - Neon Speedometer (Sound Update)</title>
+    <title>Studio J - EV Speedometer</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -24,7 +24,6 @@
             overflow: hidden;
         }
 
-        /* 계기판 컨테이너 */
         #gauge-container {
             position: relative;
             width: 350px;
@@ -103,7 +102,6 @@
             letter-spacing: 2px;
         }
 
-        /* 제어 버튼 영역 */
         .controls {
             margin-top: 40px;
             display: flex;
@@ -160,7 +158,6 @@
         const endAngle = 120;
         const maxSpeed = 200;
 
-        // 눈금 및 숫자 라벨 생성
         for (let s = 0; s <= maxSpeed; s += 5) {
             const angle = ((s / maxSpeed) * (endAngle - startAngle)) + startAngle;
             const tick = document.createElement('div');
@@ -182,37 +179,54 @@
             }
         }
 
-        needleContainer.style.transform = `rotate(${startAngle}deg)`;
-
-        // --- 사운드 엔진 설정 ---
-        let audioCtx, oscillator, gainNode;
+        // --- 고성능 EV 사운드 엔진 ---
+        let audioCtx, osc1, osc2, biquadFilter, gainNode;
         let isSoundOn = false;
 
         function initAudio() {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            oscillator = audioCtx.createOscillator();
+            
+            osc1 = audioCtx.createOscillator(); // 저음 베이스
+            osc2 = audioCtx.createOscillator(); // 고음 하모닉스
+            biquadFilter = audioCtx.createBiquadFilter();
             gainNode = audioCtx.createGain();
-            
-            oscillator.type = 'sawtooth'; // 사이버틱한 톱니파 소리
-            oscillator.frequency.setValueAtTime(50, audioCtx.currentTime); 
-            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-            
-            oscillator.connect(gainNode);
+
+            osc1.type = 'sine';
+            osc2.type = 'triangle';
+
+            biquadFilter.type = 'lowpass';
+            biquadFilter.frequency.setValueAtTime(200, audioCtx.currentTime);
+            biquadFilter.Q.setValueAtTime(5, audioCtx.currentTime); // 공명감 추가
+
+            osc1.connect(biquadFilter);
+            osc2.connect(biquadFilter);
+            biquadFilter.connect(gainNode);
             gainNode.connect(audioCtx.destination);
-            oscillator.start();
+
+            osc1.start();
+            osc2.start();
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
         }
 
         function updateSound(kmh) {
             if (!audioCtx || !isSoundOn) return;
-            // 속도에 따라 주파수 조절 (50Hz ~ 400Hz)
-            const freq = 50 + (kmh * 1.5);
-            oscillator.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
-            // 속도가 빠를수록 소리도 살짝 커짐
-            const vol = kmh > 1 ? 0.1 + (kmh / 400) : 0;
+
+            // 속도에 따른 주파수 설계 (모기 소리 탈출!)
+            const baseFreq = 40 + (kmh * 0.8); // 묵직한 베이스
+            const harmonics = 80 + (kmh * 2.5); // 날카로운 모터음
+
+            osc1.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.1);
+            osc2.frequency.setTargetAtTime(harmonics, audioCtx.currentTime, 0.1);
+
+            // 속도가 빠를수록 필터가 열리면서 시원한 소리가 남
+            const filterFreq = 200 + (kmh * 15);
+            biquadFilter.frequency.setTargetAtTime(filterFreq, audioCtx.currentTime, 0.1);
+
+            const vol = kmh > 0.5 ? Math.min(0.3, 0.05 + (kmh / 500)) : 0;
             gainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
         }
 
-        // --- 센서 및 이벤트 제어 ---
+        // --- 센서 제어 ---
         let rawSpeed = 0;
         let lastTime = Date.now();
 
@@ -239,18 +253,12 @@
         function handleMotion(event) {
             const acc = event.acceleration;
             if (!acc || acc.x === null) return;
-
             const now = Date.now();
             const dt = (now - lastTime) / 1000;
             lastTime = now;
-
             const accMag = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
-
-            if (accMag > 0.4) {
-                rawSpeed += (accMag * dt) * 2.5;
-            }
+            if (accMag > 0.4) rawSpeed += (accMag * dt) * 2.5;
             rawSpeed *= 0.97;
-
             updateUI(rawSpeed);
             updateSound(rawSpeed * 3.6);
         }
@@ -259,7 +267,6 @@
             let kmh = s * 3.6;
             if (kmh < 0.1) kmh = 0;
             if (kmh > maxSpeed) kmh = maxSpeed;
-
             speedEl.innerText = Math.floor(kmh);
             const angle = ((kmh / maxSpeed) * (endAngle - startAngle)) + startAngle;
             needleContainer.style.transform = `rotate(${angle}deg)`;
