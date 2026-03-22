@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studio J - Full Speedometer</title>
+    <title>Studio J - Neon Speedometer (Sound Update)</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -24,6 +24,7 @@
             overflow: hidden;
         }
 
+        /* 계기판 컨테이너 */
         #gauge-container {
             position: relative;
             width: 350px;
@@ -33,7 +34,6 @@
             justify-content: center;
         }
 
-        /* 눈금 및 숫자 컨테이너 */
         #face-container {
             position: absolute;
             width: 100%;
@@ -47,7 +47,7 @@
             width: 2px;
             height: 10px;
             background-color: rgba(255, 255, 255, 0.3);
-            transform-origin: 0 175px; /* 반지름 175px 기준으로 회전 */
+            transform-origin: 0 175px;
         }
 
         .tick.major {
@@ -57,7 +57,6 @@
             box-shadow: var(--neon-glow);
         }
 
-        /* 숫자 라벨 스타일 */
         .label {
             position: absolute;
             width: 40px;
@@ -68,7 +67,6 @@
             transform: translate(-50%, -50%);
         }
 
-        /* 바늘 컨테이너 */
         #needle-container {
             position: absolute;
             width: 100%;
@@ -79,10 +77,10 @@
 
         #needle {
             position: absolute;
-            top: 20px; /* 눈금 안쪽으로 살짝 들어오게 */
+            top: 20px;
             left: calc(50% - 2px);
             width: 4px;
-            height: 60px; /* 바늘 길이를 시원하게 늘림 */
+            height: 65px;
             background: linear-gradient(to bottom, white, rgba(255,255,255,0));
             box-shadow: var(--neon-glow);
             border-radius: 2px;
@@ -90,11 +88,11 @@
 
         #display {
             text-align: center;
-            margin-top: 40px; /* 숫자를 아래쪽으로 살짝 내림 */
+            margin-top: 50px;
         }
 
         #speed {
-            font-size: 70px;
+            font-size: 75px;
             text-shadow: var(--neon-glow);
             margin: 0;
         }
@@ -105,16 +103,31 @@
             letter-spacing: 2px;
         }
 
+        /* 제어 버튼 영역 */
+        .controls {
+            margin-top: 40px;
+            display: flex;
+            gap: 15px;
+            flex-direction: column;
+            align-items: center;
+        }
+
         button {
-            margin-top: 30px;
-            padding: 12px 30px;
+            padding: 10px 25px;
             font-family: 'Orbitron', sans-serif;
             background: transparent;
             color: white;
             border: 1px solid white;
             border-radius: 5px;
             cursor: pointer;
-            z-index: 20;
+            transition: 0.2s;
+            font-size: 14px;
+        }
+
+        button.active {
+            background: white;
+            color: black;
+            box-shadow: var(--neon-glow);
         }
     </style>
 </head>
@@ -131,20 +144,23 @@
         </div>
     </div>
 
-    <button id="start-btn">IGNITION</button>
+    <div class="controls">
+        <button id="start-btn">IGNITION (START)</button>
+        <button id="sound-btn" style="display: none;">SOUND OFF</button>
+    </div>
 
     <script>
         const face = document.getElementById('face-container');
         const speedEl = document.getElementById('speed');
         const needleContainer = document.getElementById('needle-container');
         const startBtn = document.getElementById('start-btn');
+        const soundBtn = document.getElementById('sound-btn');
 
-        // 눈금 및 숫자 생성 로직
-        const startAngle = -120; // 0km/h 위치
-        const endAngle = 120;   // 200km/h 위치
+        const startAngle = -120;
+        const endAngle = 120;
         const maxSpeed = 200;
 
-        // 1. 눈금 그리기 (5km 단위로 40개)
+        // 눈금 및 숫자 라벨 생성
         for (let s = 0; s <= maxSpeed; s += 5) {
             const angle = ((s / maxSpeed) * (endAngle - startAngle)) + startAngle;
             const tick = document.createElement('div');
@@ -152,16 +168,13 @@
             tick.style.transform = `rotate(${angle}deg)`;
             face.appendChild(tick);
 
-            // 2. 숫자 라벨 달기 (40 단위)
             if (s % 40 === 0) {
                 const label = document.createElement('div');
                 label.className = 'label';
-                const radius = 135; // 숫자가 배치될 반지름
-                const rad = (angle - 90) * (Math.PI / 180); // 각도를 라디안으로
-                
+                const radius = 135;
+                const rad = (angle - 90) * (Math.PI / 180);
                 const x = 175 + radius * Math.cos(rad);
                 const y = 175 + radius * Math.sin(rad);
-                
                 label.style.left = `${x}px`;
                 label.style.top = `${y}px`;
                 label.innerText = s;
@@ -169,21 +182,58 @@
             }
         }
 
-        // 초기 바늘 위치
         needleContainer.style.transform = `rotate(${startAngle}deg)`;
 
-        // 센서 로직 (RAW 모드)
+        // --- 사운드 엔진 설정 ---
+        let audioCtx, oscillator, gainNode;
+        let isSoundOn = false;
+
+        function initAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            oscillator = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+            
+            oscillator.type = 'sawtooth'; // 사이버틱한 톱니파 소리
+            oscillator.frequency.setValueAtTime(50, audioCtx.currentTime); 
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+        }
+
+        function updateSound(kmh) {
+            if (!audioCtx || !isSoundOn) return;
+            // 속도에 따라 주파수 조절 (50Hz ~ 400Hz)
+            const freq = 50 + (kmh * 1.5);
+            oscillator.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
+            // 속도가 빠를수록 소리도 살짝 커짐
+            const vol = kmh > 1 ? 0.1 + (kmh / 400) : 0;
+            gainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
+        }
+
+        // --- 센서 및 이벤트 제어 ---
         let rawSpeed = 0;
         let lastTime = Date.now();
 
         startBtn.addEventListener('click', async () => {
+            if (!audioCtx) initAudio();
             startBtn.style.display = 'none';
+            soundBtn.style.display = 'block';
+            
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
                 const res = await DeviceMotionEvent.requestPermission();
                 if (res === 'granted') window.addEventListener('devicemotion', handleMotion);
             } else {
                 window.addEventListener('devicemotion', handleMotion);
             }
+        });
+
+        soundBtn.addEventListener('click', () => {
+            isSoundOn = !isSoundOn;
+            soundBtn.innerText = isSoundOn ? "SOUND ON" : "SOUND OFF";
+            soundBtn.classList.toggle('active');
+            if (!isSoundOn && gainNode) gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
         });
 
         function handleMotion(event) {
@@ -197,16 +247,17 @@
             const accMag = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
 
             if (accMag > 0.4) {
-                rawSpeed += (accMag * dt) * 2.5; // 흔드는 맛을 위해 가중치 살짝 UP
+                rawSpeed += (accMag * dt) * 2.5;
             }
-            rawSpeed *= 0.97; // 자연스럽게 감속
+            rawSpeed *= 0.97;
 
             updateUI(rawSpeed);
+            updateSound(rawSpeed * 3.6);
         }
 
         function updateUI(s) {
             let kmh = s * 3.6;
-            if (kmh < 0) kmh = 0;
+            if (kmh < 0.1) kmh = 0;
             if (kmh > maxSpeed) kmh = maxSpeed;
 
             speedEl.innerText = Math.floor(kmh);
