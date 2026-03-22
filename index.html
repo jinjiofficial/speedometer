@@ -3,139 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studio J - EV Speedometer</title>
+    <title>Studio J - Real EV Speedometer</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --neon-white: rgba(255, 255, 255, 0.9);
             --neon-glow: 0 0 15px rgba(255, 255, 255, 0.6);
         }
-
-        body {
-            margin: 0;
-            background-color: #000;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            font-family: 'Orbitron', sans-serif;
-            overflow: hidden;
-        }
-
-        #gauge-container {
-            position: relative;
-            width: 350px;
-            height: 350px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #face-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-        }
-
-        .tick {
-            position: absolute;
-            top: 0;
-            left: calc(50% - 1px);
-            width: 2px;
-            height: 10px;
-            background-color: rgba(255, 255, 255, 0.3);
-            transform-origin: 0 175px;
-        }
-
-        .tick.major {
-            height: 20px;
-            width: 3px;
-            background-color: white;
-            box-shadow: var(--neon-glow);
-        }
-
-        .label {
-            position: absolute;
-            width: 40px;
-            text-align: center;
-            font-size: 14px;
-            font-weight: 700;
-            color: rgba(255, 255, 255, 0.8);
-            transform: translate(-50%, -50%);
-        }
-
-        #needle-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            transition: transform 0.1s linear;
-            z-index: 10;
-        }
-
-        #needle {
-            position: absolute;
-            top: 20px;
-            left: calc(50% - 2px);
-            width: 4px;
-            height: 65px;
-            background: linear-gradient(to bottom, white, rgba(255,255,255,0));
-            box-shadow: var(--neon-glow);
-            border-radius: 2px;
-        }
-
-        #display {
-            text-align: center;
-            margin-top: 50px;
-        }
-
-        #speed {
-            font-size: 75px;
-            text-shadow: var(--neon-glow);
-            margin: 0;
-        }
-
-        .unit {
-            font-size: 14px;
-            opacity: 0.5;
-            letter-spacing: 2px;
-        }
-
-        .controls {
-            margin-top: 40px;
-            display: flex;
-            gap: 15px;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        button {
-            padding: 10px 25px;
-            font-family: 'Orbitron', sans-serif;
-            background: transparent;
-            color: white;
-            border: 1px solid white;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: 0.2s;
-            font-size: 14px;
-        }
-
-        button.active {
-            background: white;
-            color: black;
-            box-shadow: var(--neon-glow);
-        }
+        body { margin: 0; background-color: #000; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Orbitron', sans-serif; overflow: hidden; }
+        #gauge-container { position: relative; width: 350px; height: 350px; display: flex; align-items: center; justify-content: center; }
+        #face-container { position: absolute; width: 100%; height: 100%; }
+        .tick { position: absolute; top: 0; left: calc(50% - 1px); width: 2px; height: 10px; background-color: rgba(255, 255, 255, 0.3); transform-origin: 0 175px; }
+        .tick.major { height: 20px; width: 3px; background-color: white; box-shadow: var(--neon-glow); }
+        .label { position: absolute; width: 40px; text-align: center; font-size: 14px; font-weight: 700; color: rgba(255, 255, 255, 0.8); transform: translate(-50%, -50%); }
+        #needle-container { position: absolute; width: 100%; height: 100%; transition: transform 0.1s linear; z-index: 10; }
+        #needle { position: absolute; top: 20px; left: calc(50% - 2px); width: 4px; height: 65px; background: linear-gradient(to bottom, white, rgba(255,255,255,0)); box-shadow: var(--neon-glow); border-radius: 2px; }
+        #display { text-align: center; margin-top: 50px; }
+        #speed { font-size: 75px; text-shadow: var(--neon-glow); margin: 0; }
+        .unit { font-size: 14px; opacity: 0.5; letter-spacing: 2px; }
+        .controls { margin-top: 40px; display: flex; gap: 15px; flex-direction: column; align-items: center; }
+        button { padding: 10px 25px; font-family: 'Orbitron', sans-serif; background: transparent; color: white; border: 1px solid white; border-radius: 5px; cursor: pointer; transition: 0.2s; font-size: 14px; }
+        button.active { background: white; color: black; box-shadow: var(--neon-glow); }
     </style>
 </head>
 <body>
 
     <div id="gauge-container">
         <div id="face-container"></div>
-        <div id="needle-container">
-            <div id="needle"></div>
-        </div>
+        <div id="needle-container"><div id="needle"></div></div>
         <div id="display">
             <p id="speed">0</p>
             <span class="unit">KM/H</span>
@@ -147,93 +42,46 @@
         <button id="sound-btn" style="display: none;">SOUND OFF</button>
     </div>
 
+    <audio id="ev-audio" loop>
+        <source src="https://actions.google.com/sounds/v1/transportation/car_idling.ogg" type="audio/ogg">
+    </audio>
+
     <script>
         const face = document.getElementById('face-container');
         const speedEl = document.getElementById('speed');
         const needleContainer = document.getElementById('needle-container');
         const startBtn = document.getElementById('start-btn');
         const soundBtn = document.getElementById('sound-btn');
+        const evAudio = document.getElementById('ev-audio');
 
-        const startAngle = -120;
-        const endAngle = 120;
-        const maxSpeed = 200;
+        const startAngle = -120, endAngle = 120, maxSpeed = 200;
 
+        // 눈금 생성 (생략 가능하나 가독성을 위해 유지)
         for (let s = 0; s <= maxSpeed; s += 5) {
             const angle = ((s / maxSpeed) * (endAngle - startAngle)) + startAngle;
             const tick = document.createElement('div');
             tick.className = s % 20 === 0 ? 'tick major' : 'tick';
             tick.style.transform = `rotate(${angle}deg)`;
             face.appendChild(tick);
-
             if (s % 40 === 0) {
                 const label = document.createElement('div');
                 label.className = 'label';
-                const radius = 135;
                 const rad = (angle - 90) * (Math.PI / 180);
-                const x = 175 + radius * Math.cos(rad);
-                const y = 175 + radius * Math.sin(rad);
-                label.style.left = `${x}px`;
-                label.style.top = `${y}px`;
+                label.style.left = `${175 + 135 * Math.cos(rad)}px`;
+                label.style.top = `${175 + 135 * Math.sin(rad)}px`;
                 label.innerText = s;
                 face.appendChild(label);
             }
         }
 
-        // --- 고성능 EV 사운드 엔진 ---
-        let audioCtx, osc1, osc2, biquadFilter, gainNode;
         let isSoundOn = false;
-
-        function initAudio() {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            
-            osc1 = audioCtx.createOscillator(); // 저음 베이스
-            osc2 = audioCtx.createOscillator(); // 고음 하모닉스
-            biquadFilter = audioCtx.createBiquadFilter();
-            gainNode = audioCtx.createGain();
-
-            osc1.type = 'sine';
-            osc2.type = 'triangle';
-
-            biquadFilter.type = 'lowpass';
-            biquadFilter.frequency.setValueAtTime(200, audioCtx.currentTime);
-            biquadFilter.Q.setValueAtTime(5, audioCtx.currentTime); // 공명감 추가
-
-            osc1.connect(biquadFilter);
-            osc2.connect(biquadFilter);
-            biquadFilter.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-
-            osc1.start();
-            osc2.start();
-            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-        }
-
-        function updateSound(kmh) {
-            if (!audioCtx || !isSoundOn) return;
-
-            // 속도에 따른 주파수 설계 (모기 소리 탈출!)
-            const baseFreq = 40 + (kmh * 0.8); // 묵직한 베이스
-            const harmonics = 80 + (kmh * 2.5); // 날카로운 모터음
-
-            osc1.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.1);
-            osc2.frequency.setTargetAtTime(harmonics, audioCtx.currentTime, 0.1);
-
-            // 속도가 빠를수록 필터가 열리면서 시원한 소리가 남
-            const filterFreq = 200 + (kmh * 15);
-            biquadFilter.frequency.setTargetAtTime(filterFreq, audioCtx.currentTime, 0.1);
-
-            const vol = kmh > 0.5 ? Math.min(0.3, 0.05 + (kmh / 500)) : 0;
-            gainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
-        }
-
-        // --- 센서 제어 ---
         let rawSpeed = 0;
         let lastTime = Date.now();
 
         startBtn.addEventListener('click', async () => {
-            if (!audioCtx) initAudio();
             startBtn.style.display = 'none';
             soundBtn.style.display = 'block';
+            evAudio.play().then(() => { evAudio.volume = 0; }); // 초기 볼륨 0
             
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
                 const res = await DeviceMotionEvent.requestPermission();
@@ -247,28 +95,34 @@
             isSoundOn = !isSoundOn;
             soundBtn.innerText = isSoundOn ? "SOUND ON" : "SOUND OFF";
             soundBtn.classList.toggle('active');
-            if (!isSoundOn && gainNode) gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+            if (!isSoundOn) evAudio.volume = 0;
         });
 
         function handleMotion(event) {
             const acc = event.acceleration;
             if (!acc || acc.x === null) return;
-            const now = Date.now();
-            const dt = (now - lastTime) / 1000;
+            const now = Date.now(), dt = (now - lastTime) / 1000;
             lastTime = now;
             const accMag = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
             if (accMag > 0.4) rawSpeed += (accMag * dt) * 2.5;
             rawSpeed *= 0.97;
-            updateUI(rawSpeed);
-            updateSound(rawSpeed * 3.6);
+            
+            const kmh = rawSpeed * 3.6;
+            updateUI(kmh);
+            
+            if (isSoundOn) {
+                // 핵심: 재생 속도(피치) 조절. 기본 1.0에서 속도에 따라 최대 4배까지
+                const rate = 1.0 + (kmh / 50); 
+                evAudio.playbackRate = Math.min(rate, 4.0);
+                // 볼륨 조절
+                evAudio.volume = Math.min(0.5, kmh / 100);
+            }
         }
 
-        function updateUI(s) {
-            let kmh = s * 3.6;
-            if (kmh < 0.1) kmh = 0;
-            if (kmh > maxSpeed) kmh = maxSpeed;
-            speedEl.innerText = Math.floor(kmh);
-            const angle = ((kmh / maxSpeed) * (endAngle - startAngle)) + startAngle;
+        function updateUI(kmh) {
+            const displayKmh = Math.min(Math.floor(kmh), maxSpeed);
+            speedEl.innerText = displayKmh;
+            const angle = ((displayKmh / maxSpeed) * (endAngle - startAngle)) + startAngle;
             needleContainer.style.transform = `rotate(${angle}deg)`;
         }
     </script>
