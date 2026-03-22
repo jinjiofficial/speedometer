@@ -42,8 +42,8 @@
         <button id="sound-btn" style="display: none;">SOUND OFF</button>
     </div>
 
-    <audio id="ev-audio" loop>
-        <source src="https://actions.google.com/sounds/v1/transportation/car_idling.ogg" type="audio/ogg">
+    <audio id="ev-audio" loop preload="auto">
+        <source src="ev_sound.mp3" type="audio/mpeg">
     </audio>
 
     <script>
@@ -56,7 +56,6 @@
 
         const startAngle = -120, endAngle = 120, maxSpeed = 200;
 
-        // 눈금 생성 (생략 가능하나 가독성을 위해 유지)
         for (let s = 0; s <= maxSpeed; s += 5) {
             const angle = ((s / maxSpeed) * (endAngle - startAngle)) + startAngle;
             const tick = document.createElement('div');
@@ -81,7 +80,7 @@
         startBtn.addEventListener('click', async () => {
             startBtn.style.display = 'none';
             soundBtn.style.display = 'block';
-            evAudio.play().then(() => { evAudio.volume = 0; }); // 초기 볼륨 0
+            evAudio.play().then(() => { evAudio.volume = 0; }); 
             
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
                 const res = await DeviceMotionEvent.requestPermission();
@@ -111,11 +110,11 @@
             updateUI(kmh);
             
             if (isSoundOn) {
-                // 핵심: 재생 속도(피치) 조절. 기본 1.0에서 속도에 따라 최대 4배까지
-                const rate = 1.0 + (kmh / 50); 
-                evAudio.playbackRate = Math.min(rate, 4.0);
-                // 볼륨 조절
-                evAudio.volume = Math.min(0.5, kmh / 100);
+                // 속도가 0일 때도 아주 낮은 피치로 소리가 깔리게 설정
+                const rate = 0.8 + (kmh / 60); 
+                evAudio.playbackRate = Math.min(rate, 3.5);
+                // 볼륨은 속도에 따라 최대 0.6까지
+                evAudio.volume = Math.min(0.6, 0.1 + (kmh / 150));
             }
         }
 
