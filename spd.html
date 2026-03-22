@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio J Speedometer</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #000;
+            color: #0ff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-family: 'Arial Black', sans-serif;
+            overflow: hidden;
+        }
+
+        #brand {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            letter-spacing: 5px;
+        }
+
+        #speed-container {
+            text-align: center;
+        }
+
+        #speed {
+            font-size: 120px;
+            line-height: 1;
+        }
+
+        .unit {
+            font-size: 30px;
+            margin-left: 10px;
+        }
+
+        #status {
+            font-size: 0.8rem;
+            color: #555;
+            margin-top: 20px;
+            padding: 0 20px;
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            background: #0ff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="brand">STUDIO J</div>
+    
+    <div id="speed-container">
+        <span id="speed">0</span>
+        <span class="unit">km/h</span>
+    </div>
+
+    <div id="status">센서 권한이 필요해. 아래 버튼을 눌러줘!</div>
+    <button id="start-btn">속도계 시작</button>
+
+    <script>
+        const speedEl = document.getElementById('speed');
+        const statusEl = document.getElementById('status');
+        const startBtn = document.getElementById('start-btn');
+
+        let currentSpeed = 0; // m/s 단위
+        let lastTimestamp = Date.now();
+
+        // 권한 요청 및 시작
+        startBtn.addEventListener('click', async () => {
+            startBtn.style.display = 'none';
+            statusEl.innerText = "센서 연결 중...";
+
+            // 1. GPS 추적 시작
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(
+                    (position) => {
+                        // GPS에서 제공하는 속도 (m/s -> km/h 변환)
+                        if (position.coords.speed !== null) {
+                            currentSpeed = position.coords.speed;
+                            updateDisplay(currentSpeed);
+                            statusEl.innerText = "GPS 신호 양호";
+                        }
+                    },
+                    (err) => {
+                        statusEl.innerText = "GPS 에러: " + err.message;
+                    },
+                    { enableHighAccuracy: true }
+                );
+            }
+
+            // 2. 가속도 센서 (데드 레코닝 보조)
+            // iOS 13+ 등에서 권한 요청이 필요할 수 있음
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                const permission = await DeviceMotionEvent.requestPermission();
+                if (permission === 'granted') {
+                    window.addEventListener('devicemotion', handleMotion);
+                }
+            } else {
+                window.addEventListener('devicemotion', handleMotion);
+            }
+        });
+
+        function handleMotion(event) {
+            const acc = event.acceleration; // 중력 제외 가속도
+            if (!acc || acc.x === null) return;
+
+            const now = Date.now();
+            const dt = (now - lastTimestamp) / 1000; // 초 단위 시간 변화량
+            lastTimestamp = now;
+
+            // 단순화된 가속도 벡터 합성: sqrt(ax^2 + ay^2 + az^2)
+            const accelerationMag = Math.sqrt(acc.x ** 2 + acc.y ** 2 + acc.z ** 2);
+
+            // 노이즈 필터링 (너무 작은 움직임은 무시)
+            if (accelerationMag > 0.5) {
+                // v = v0 + a*t (데드 레코닝 핵심 공식)
+                // 실제로는 방향까지 계산해야 하지만, 여기서는 속력 변화만 더함
+                currentSpeed += (accelerationMag * dt) * 0.2; // 보정계수 0.2 적용
+            }
+
+            // 마찰이나 공기저항 등을 고려해 정지 상태로 서서히 수렴하게 함 (Drift 방지)
+            if (accelerationMag < 0.2) {
+                currentSpeed *= 0.95; 
+            }
+
+            updateDisplay(currentSpeed);
+        }
+
+        function updateDisplay(speedMS) {
+            let speedKMH = speedMS * 3.6; // m/s를 km/h로 변환
+            if (speedKMH < 0.5) speedKMH = 0; // 아주 낮은 속도는 0으로 표시
+            speedEl.innerText = Math.floor(speedKMH);
+        }
+    </script>
+</body>
+</html>
