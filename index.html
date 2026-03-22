@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern Cyber Speedometer - RAW</title>
+    <title>Studio J - Full Speedometer</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -26,109 +26,161 @@
 
         #gauge-container {
             position: relative;
-            width: 300px;
-            height: 300px;
+            width: 350px;
+            height: 350px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        #track {
+        /* 눈금 및 숫자 컨테이너 */
+        #face-container {
             position: absolute;
             width: 100%;
             height: 100%;
-            border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-sizing: border-box;
+        }
+
+        .tick {
+            position: absolute;
+            top: 0;
+            left: calc(50% - 1px);
+            width: 2px;
+            height: 10px;
+            background-color: rgba(255, 255, 255, 0.3);
+            transform-origin: 0 175px; /* 반지름 175px 기준으로 회전 */
+        }
+
+        .tick.major {
+            height: 20px;
+            width: 3px;
+            background-color: white;
+            box-shadow: var(--neon-glow);
+        }
+
+        /* 숫자 라벨 스타일 */
+        .label {
+            position: absolute;
+            width: 40px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.8);
+            transform: translate(-50%, -50%);
+        }
+
+        /* 바늘 컨테이너 */
+        #needle-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.1s linear;
+            z-index: 10;
         }
 
         #needle {
             position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            /* 보정을 뺐으니 반응 속도를 더 빠르게(0.1s) 설정 */
-            transition: transform 0.1s linear;
-            z-index: 2;
-        }
-
-        #needle::after {
-            content: '';
-            position: absolute;
-            top: -6px;
+            top: 20px; /* 눈금 안쪽으로 살짝 들어오게 */
             left: calc(50% - 2px);
             width: 4px;
-            height: 12px;
-            background-color: white;
+            height: 60px; /* 바늘 길이를 시원하게 늘림 */
+            background: linear-gradient(to bottom, white, rgba(255,255,255,0));
             box-shadow: var(--neon-glow);
             border-radius: 2px;
         }
 
         #display {
             text-align: center;
-            z-index: 3;
+            margin-top: 40px; /* 숫자를 아래쪽으로 살짝 내림 */
         }
 
         #speed {
-            font-size: 90px;
-            font-weight: 700;
+            font-size: 70px;
             text-shadow: var(--neon-glow);
             margin: 0;
         }
 
         .unit {
-            font-size: 16px;
+            font-size: 14px;
             opacity: 0.5;
-            letter-spacing: 3px;
-        }
-
-        #status {
-            margin-top: 40px;
-            font-size: 10px;
             letter-spacing: 2px;
-            color: #444;
         }
 
         button {
-            margin-top: 20px;
-            padding: 10px 25px;
+            margin-top: 30px;
+            padding: 12px 30px;
             font-family: 'Orbitron', sans-serif;
             background: transparent;
             color: white;
             border: 1px solid white;
-            cursor: pointer;
             border-radius: 5px;
+            cursor: pointer;
+            z-index: 20;
         }
     </style>
 </head>
 <body>
 
     <div id="gauge-container">
-        <div id="track"></div>
-        <div id="needle"></div>
+        <div id="face-container"></div>
+        <div id="needle-container">
+            <div id="needle"></div>
+        </div>
         <div id="display">
             <p id="speed">0</p>
             <span class="unit">KM/H</span>
         </div>
     </div>
 
-    <div id="status">RAW DATA MODE</div>
     <button id="start-btn">IGNITION</button>
 
     <script>
+        const face = document.getElementById('face-container');
         const speedEl = document.getElementById('speed');
-        const needleEl = document.getElementById('needle');
+        const needleContainer = document.getElementById('needle-container');
         const startBtn = document.getElementById('start-btn');
 
+        // 눈금 및 숫자 생성 로직
+        const startAngle = -120; // 0km/h 위치
+        const endAngle = 120;   // 200km/h 위치
+        const maxSpeed = 200;
+
+        // 1. 눈금 그리기 (5km 단위로 40개)
+        for (let s = 0; s <= maxSpeed; s += 5) {
+            const angle = ((s / maxSpeed) * (endAngle - startAngle)) + startAngle;
+            const tick = document.createElement('div');
+            tick.className = s % 20 === 0 ? 'tick major' : 'tick';
+            tick.style.transform = `rotate(${angle}deg)`;
+            face.appendChild(tick);
+
+            // 2. 숫자 라벨 달기 (40 단위)
+            if (s % 40 === 0) {
+                const label = document.createElement('div');
+                label.className = 'label';
+                const radius = 135; // 숫자가 배치될 반지름
+                const rad = (angle - 90) * (Math.PI / 180); // 각도를 라디안으로
+                
+                const x = 175 + radius * Math.cos(rad);
+                const y = 175 + radius * Math.sin(rad);
+                
+                label.style.left = `${x}px`;
+                label.style.top = `${y}px`;
+                label.innerText = s;
+                face.appendChild(label);
+            }
+        }
+
+        // 초기 바늘 위치
+        needleContainer.style.transform = `rotate(${startAngle}deg)`;
+
+        // 센서 로직 (RAW 모드)
         let rawSpeed = 0;
         let lastTime = Date.now();
 
         startBtn.addEventListener('click', async () => {
             startBtn.style.display = 'none';
-            
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                const permission = await DeviceMotionEvent.requestPermission();
-                if (permission === 'granted') window.addEventListener('devicemotion', handleMotion);
+                const res = await DeviceMotionEvent.requestPermission();
+                if (res === 'granted') window.addEventListener('devicemotion', handleMotion);
             } else {
                 window.addEventListener('devicemotion', handleMotion);
             }
@@ -142,32 +194,24 @@
             const dt = (now - lastTime) / 1000;
             lastTime = now;
 
-            // 가속도 벡터 합성
             const accMag = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
 
-            // 보정 없이 그대로 적분 (v = v + a*t)
-            // 흔드는 맛을 위해 가중치를 조금 높였어!
-            if (accMag > 0.3) {
-                rawSpeed += (accMag * dt) * 2.0; 
+            if (accMag > 0.4) {
+                rawSpeed += (accMag * dt) * 2.5; // 흔드는 맛을 위해 가중치 살짝 UP
             }
-
-            // 마찰력 효과 (가만히 두면 속도가 서서히 줄어듦)
-            rawSpeed *= 0.98;
+            rawSpeed *= 0.97; // 자연스럽게 감속
 
             updateUI(rawSpeed);
         }
 
         function updateUI(s) {
             let kmh = s * 3.6;
-            if (kmh < 0.1) kmh = 0;
-            
-            // 화면 표시
-            speedEl.innerText = Math.floor(kmh);
+            if (kmh < 0) kmh = 0;
+            if (kmh > maxSpeed) kmh = maxSpeed;
 
-            // 바늘 회전 (0~200km/h 기준, -120도에서 120도까지)
-            const maxDisplay = 200;
-            const angle = (Math.min(kmh, maxDisplay) / maxDisplay) * 240 - 120;
-            needleEl.style.transform = `rotate(${angle}deg)`;
+            speedEl.innerText = Math.floor(kmh);
+            const angle = ((kmh / maxSpeed) * (endAngle - startAngle)) + startAngle;
+            needleContainer.style.transform = `rotate(${angle}deg)`;
         }
     </script>
 </body>
