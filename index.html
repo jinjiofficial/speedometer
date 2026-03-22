@@ -3,145 +3,171 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studio J Speedometer</title>
+    <title>Modern Cyber Speedometer - RAW</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --neon-white: rgba(255, 255, 255, 0.9);
+            --neon-glow: 0 0 15px rgba(255, 255, 255, 0.6);
+        }
+
         body {
             margin: 0;
             background-color: #000;
-            color: #0ff;
+            color: white;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
-            font-family: 'Arial Black', sans-serif;
+            font-family: 'Orbitron', sans-serif;
             overflow: hidden;
         }
 
-        #brand {
-            font-size: 1.5rem;
-            margin-bottom: 20px;
-            letter-spacing: 5px;
+        #gauge-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        #speed-container {
+        #track {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-sizing: border-box;
+        }
+
+        #needle {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            /* 보정을 뺐으니 반응 속도를 더 빠르게(0.1s) 설정 */
+            transition: transform 0.1s linear;
+            z-index: 2;
+        }
+
+        #needle::after {
+            content: '';
+            position: absolute;
+            top: -6px;
+            left: calc(50% - 2px);
+            width: 4px;
+            height: 12px;
+            background-color: white;
+            box-shadow: var(--neon-glow);
+            border-radius: 2px;
+        }
+
+        #display {
             text-align: center;
+            z-index: 3;
         }
 
         #speed {
-            font-size: 120px;
-            line-height: 1;
+            font-size: 90px;
+            font-weight: 700;
+            text-shadow: var(--neon-glow);
+            margin: 0;
         }
 
         .unit {
-            font-size: 30px;
-            margin-left: 10px;
+            font-size: 16px;
+            opacity: 0.5;
+            letter-spacing: 3px;
         }
 
         #status {
-            font-size: 0.8rem;
-            color: #555;
-            margin-top: 20px;
-            padding: 0 20px;
-            text-align: center;
+            margin-top: 40px;
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: #444;
         }
 
         button {
-            padding: 10px 20px;
-            font-size: 1rem;
-            background: #0ff;
-            border: none;
-            border-radius: 5px;
+            margin-top: 20px;
+            padding: 10px 25px;
+            font-family: 'Orbitron', sans-serif;
+            background: transparent;
+            color: white;
+            border: 1px solid white;
             cursor: pointer;
-            font-weight: bold;
+            border-radius: 5px;
         }
     </style>
 </head>
 <body>
 
-    <div id="brand">STUDIO J</div>
-    
-    <div id="speed-container">
-        <span id="speed">0</span>
-        <span class="unit">km/h</span>
+    <div id="gauge-container">
+        <div id="track"></div>
+        <div id="needle"></div>
+        <div id="display">
+            <p id="speed">0</p>
+            <span class="unit">KM/H</span>
+        </div>
     </div>
 
-    <div id="status">센서 권한이 필요해. 아래 버튼을 눌러줘!</div>
-    <button id="start-btn">속도계 시작</button>
+    <div id="status">RAW DATA MODE</div>
+    <button id="start-btn">IGNITION</button>
 
     <script>
         const speedEl = document.getElementById('speed');
-        const statusEl = document.getElementById('status');
+        const needleEl = document.getElementById('needle');
         const startBtn = document.getElementById('start-btn');
 
-        let currentSpeed = 0; // m/s 단위
-        let lastTimestamp = Date.now();
+        let rawSpeed = 0;
+        let lastTime = Date.now();
 
-        // 권한 요청 및 시작
         startBtn.addEventListener('click', async () => {
             startBtn.style.display = 'none';
-            statusEl.innerText = "센서 연결 중...";
-
-            // 1. GPS 추적 시작
-            if ("geolocation" in navigator) {
-                navigator.geolocation.watchPosition(
-                    (position) => {
-                        // GPS에서 제공하는 속도 (m/s -> km/h 변환)
-                        if (position.coords.speed !== null) {
-                            currentSpeed = position.coords.speed;
-                            updateDisplay(currentSpeed);
-                            statusEl.innerText = "GPS 신호 양호";
-                        }
-                    },
-                    (err) => {
-                        statusEl.innerText = "GPS 에러: " + err.message;
-                    },
-                    { enableHighAccuracy: true }
-                );
-            }
-
-            // 2. 가속도 센서 (데드 레코닝 보조)
-            // iOS 13+ 등에서 권한 요청이 필요할 수 있음
+            
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
                 const permission = await DeviceMotionEvent.requestPermission();
-                if (permission === 'granted') {
-                    window.addEventListener('devicemotion', handleMotion);
-                }
+                if (permission === 'granted') window.addEventListener('devicemotion', handleMotion);
             } else {
                 window.addEventListener('devicemotion', handleMotion);
             }
         });
 
         function handleMotion(event) {
-            const acc = event.acceleration; // 중력 제외 가속도
+            const acc = event.acceleration;
             if (!acc || acc.x === null) return;
 
             const now = Date.now();
-            const dt = (now - lastTimestamp) / 1000; // 초 단위 시간 변화량
-            lastTimestamp = now;
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
 
-            // 단순화된 가속도 벡터 합성: sqrt(ax^2 + ay^2 + az^2)
-            const accelerationMag = Math.sqrt(acc.x ** 2 + acc.y ** 2 + acc.z ** 2);
+            // 가속도 벡터 합성
+            const accMag = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
 
-            // 노이즈 필터링 (너무 작은 움직임은 무시)
-            if (accelerationMag > 0.5) {
-                // v = v0 + a*t (데드 레코닝 핵심 공식)
-                // 실제로는 방향까지 계산해야 하지만, 여기서는 속력 변화만 더함
-                currentSpeed += (accelerationMag * dt) * 0.2; // 보정계수 0.2 적용
+            // 보정 없이 그대로 적분 (v = v + a*t)
+            // 흔드는 맛을 위해 가중치를 조금 높였어!
+            if (accMag > 0.3) {
+                rawSpeed += (accMag * dt) * 2.0; 
             }
 
-            // 마찰이나 공기저항 등을 고려해 정지 상태로 서서히 수렴하게 함 (Drift 방지)
-            if (accelerationMag < 0.2) {
-                currentSpeed *= 0.95; 
-            }
+            // 마찰력 효과 (가만히 두면 속도가 서서히 줄어듦)
+            rawSpeed *= 0.98;
 
-            updateDisplay(currentSpeed);
+            updateUI(rawSpeed);
         }
 
-        function updateDisplay(speedMS) {
-            let speedKMH = speedMS * 3.6; // m/s를 km/h로 변환
-            if (speedKMH < 0.5) speedKMH = 0; // 아주 낮은 속도는 0으로 표시
-            speedEl.innerText = Math.floor(speedKMH);
+        function updateUI(s) {
+            let kmh = s * 3.6;
+            if (kmh < 0.1) kmh = 0;
+            
+            // 화면 표시
+            speedEl.innerText = Math.floor(kmh);
+
+            // 바늘 회전 (0~200km/h 기준, -120도에서 120도까지)
+            const maxDisplay = 200;
+            const angle = (Math.min(kmh, maxDisplay) / maxDisplay) * 240 - 120;
+            needleEl.style.transform = `rotate(${angle}deg)`;
         }
     </script>
 </body>
