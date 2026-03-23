@@ -3,43 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studio J - Hybrid Speedometer</title>
+    <title>Studio J - Hybrid Engine</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --neon-white: rgba(255, 255, 255, 0.9);
-            --neon-glow: 0 0 15px rgba(255, 255, 255, 0.6);
-        }
+        :root { --neon-white: rgba(255, 255, 255, 0.9); --neon-glow: 0 0 15px rgba(255, 255, 255, 0.6); }
         body { margin: 0; background-color: #000; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Orbitron', sans-serif; overflow: hidden; }
         
-        /* 모드 선택기 */
-        .mode-selector { margin-bottom: 20px; display: flex; border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; overflow: hidden; }
-        .mode-btn { padding: 8px 20px; background: transparent; color: white; border: none; cursor: pointer; font-family: 'Orbitron'; font-size: 12px; transition: 0.3s; }
-        .mode-btn.active { background: white; color: black; font-weight: bold; }
+        /* 모드 선택기 스타일 업데이트 */
+        .mode-selector { margin-bottom: 25px; display: flex; background: rgba(255,255,255,0.05); border-radius: 30px; padding: 5px; border: 1px solid rgba(255,255,255,0.1); }
+        .mode-btn { padding: 10px 25px; background: transparent; color: rgba(255,255,255,0.4); border: none; cursor: pointer; font-family: 'Orbitron'; font-size: 13px; transition: 0.3s; border-radius: 25px; }
+        .mode-btn.active { background: white; color: black; font-weight: 700; box-shadow: var(--neon-glow); }
 
         #gauge-container { position: relative; width: 350px; height: 350px; display: flex; align-items: center; justify-content: center; }
         #face-container { position: absolute; width: 100%; height: 100%; }
-        .tick { position: absolute; top: 0; left: calc(50% - 1px); width: 2px; height: 10px; background-color: rgba(255, 255, 255, 0.3); transform-origin: 0 175px; }
-        .tick.major { height: 20px; width: 3px; background-color: white; box-shadow: var(--neon-glow); }
-        .label { position: absolute; width: 40px; text-align: center; font-size: 14px; font-weight: 700; color: rgba(255, 255, 255, 0.8); transform: translate(-50%, -50%); }
+        .tick { position: absolute; top: 0; left: calc(50% - 1px); width: 2px; height: 10px; background-color: rgba(255, 255, 255, 0.2); transform-origin: 0 175px; }
+        .tick.major { height: 18px; width: 3px; background-color: white; box-shadow: var(--neon-glow); }
+        .label { position: absolute; width: 40px; text-align: center; font-size: 14px; color: rgba(255, 255, 255, 0.7); transform: translate(-50%, -50%); }
         
-        #needle-container { position: absolute; width: 100%; height: 100%; transition: transform 0.1s linear; z-index: 10; }
-        #needle { position: absolute; top: 20px; left: calc(50% - 2.5px); width: 5px; height: 70px; background: linear-gradient(to bottom, white, rgba(255,255,255,0)); box-shadow: var(--neon-glow); border-radius: 2px; }
+        #needle-container { position: absolute; width: 100%; height: 100%; transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
+        #needle { position: absolute; top: 20px; left: calc(50% - 2px); width: 4px; height: 65px; background: linear-gradient(to bottom, white, transparent); box-shadow: var(--neon-glow); border-radius: 2px; }
         
         #display { text-align: center; margin-top: 50px; }
-        #speed { font-size: 80px; text-shadow: var(--neon-glow); margin: 0; }
-        .unit { font-size: 14px; opacity: 0.5; letter-spacing: 2px; }
+        #speed { font-size: 85px; font-weight: 700; text-shadow: var(--neon-glow); margin: 0; line-height: 1; }
+        .unit { font-size: 14px; opacity: 0.5; letter-spacing: 3px; display: block; margin-top: 5px; }
 
-        .controls { margin-top: 30px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-        button.main-btn { padding: 12px 30px; background: transparent; color: white; border: 1px solid white; border-radius: 5px; cursor: pointer; font-family: 'Orbitron'; }
-        button.active { background: white; color: black; box-shadow: var(--neon-glow); }
+        .controls { margin-top: 40px; }
+        .main-btn { padding: 12px 35px; background: transparent; color: white; border: 1px solid white; border-radius: 5px; cursor: pointer; font-family: 'Orbitron'; transition: 0.3s; }
+        .main-btn:hover { background: rgba(255,255,255,0.1); }
+        .active-sound { background: white !important; color: black !important; box-shadow: var(--neon-glow); }
     </style>
 </head>
 <body>
 
     <div class="mode-selector">
-        <button id="shake-mode-btn" class="mode-btn active">SHAKE</button>
-        <button id="drive-mode-btn" class="mode-btn">DRIVE</button>
+        <button id="shake-btn" class="mode-btn active">SHAKE ENGINE</button>
+        <button id="drive-btn" class="mode-btn">DRIVE ENGINE</button>
     </div>
 
     <div id="gauge-container">
@@ -56,25 +54,24 @@
         <button id="sound-btn" class="main-btn" style="display: none;">SOUND OFF</button>
     </div>
 
-    <audio id="ev-audio" loop><source src="ev_sound.mp3" type="audio/mpeg"></audio>
+    <audio id="ev-audio" loop preload="auto"><source src="ev_sound.mp3" type="audio/mpeg"></audio>
 
     <script>
-        const face = document.getElementById('face-container');
         const speedEl = document.getElementById('speed');
         const needleContainer = document.getElementById('needle-container');
-        const startBtn = document.getElementById('start-btn');
-        const soundBtn = document.getElementById('sound-btn');
         const evAudio = document.getElementById('ev-audio');
-        const shakeBtn = document.getElementById('shake-mode-btn');
-        const driveBtn = document.getElementById('drive-mode-btn');
-
-        let currentMode = 'SHAKE'; 
+        
+        // 데이터 저장소 (엔진 분리)
+        let engines = {
+            SHAKE: 0,
+            DRIVE: 0
+        };
+        let currentMode = 'SHAKE';
         let isSoundOn = false;
-        let rawSpeed = 0;
-        let lastTime = Date.now();
-        const startAngle = -120, endAngle = 120, maxSpeed = 200;
+        const maxSpeed = 200, startAngle = -120, endAngle = 120;
 
-        // 눈금 초기화
+        // 1. 배경 눈금 생성
+        const face = document.getElementById('face-container');
         for (let s = 0; s <= maxSpeed; s += 5) {
             const angle = ((s / maxSpeed) * (endAngle - startAngle)) + startAngle;
             const tick = document.createElement('div');
@@ -92,64 +89,74 @@
             }
         }
 
-        // 모드 변경 클릭 이벤트
-        shakeBtn.onclick = () => { currentMode = 'SHAKE'; shakeBtn.classList.add('active'); driveBtn.classList.remove('active'); };
-        driveBtn.onclick = () => { currentMode = 'DRIVE'; driveBtn.classList.add('active'); shakeBtn.classList.remove('active'); };
+        // 2. 엔진 전환 로직
+        document.getElementById('shake-btn').onclick = function() {
+            currentMode = 'SHAKE';
+            this.classList.add('active');
+            document.getElementById('drive-btn').classList.remove('active');
+        };
+        document.getElementById('drive-btn').onclick = function() {
+            currentMode = 'DRIVE';
+            this.classList.add('active');
+            document.getElementById('shake-btn').classList.remove('active');
+        };
 
-        startBtn.onclick = async () => {
-            startBtn.style.display = 'none';
-            soundBtn.style.display = 'block';
+        // 3. 메인 시스템 시작
+        document.getElementById('start-btn').onclick = async function() {
+            this.style.display = 'none';
+            document.getElementById('sound-btn').style.display = 'block';
             evAudio.play().then(() => { evAudio.volume = 0; });
 
-            // 가속도 센서 권한 (SHAKE 모드용)
+            // [SHAKE 엔진 가동]
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
                 await DeviceMotionEvent.requestPermission();
             }
-            window.addEventListener('devicemotion', handleMotion);
+            let lastTime = Date.now();
+            window.addEventListener('devicemotion', (e) => {
+                const acc = e.acceleration;
+                if (!acc || acc.x === null) return;
+                const dt = (Date.now() - lastTime) / 1000;
+                lastTime = Date.now();
+                const accMag = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
+                if (accMag > 0.4) engines.SHAKE += (accMag * dt) * 2.5;
+                engines.SHAKE *= 0.97; // 자연 감속
+                if(currentMode === 'SHAKE') updateDisplay(engines.SHAKE * 3.6);
+            });
 
-            // GPS 위치 권한 (DRIVE 모드용)
+            // [DRIVE 엔진 가동]
             if ("geolocation" in navigator) {
                 navigator.geolocation.watchPosition((pos) => {
-                    if (currentMode === 'DRIVE') {
-                        // speed는 m/s 단위로 오므로 3.6을 곱해 km/h로 변환
-                        const gpsSpeed = pos.coords.speed || 0; 
-                        updateUI(gpsSpeed * 3.6);
-                    }
-                }, (err) => console.log(err), { enableHighAccuracy: true });
+                    engines.DRIVE = (pos.coords.speed || 0) * 3.6;
+                    if(currentMode === 'DRIVE') updateDisplay(engines.DRIVE);
+                }, null, { enableHighAccuracy: true });
             }
+
+            // 사운드/UI 업데이트 루프 (프리즈 방지)
+            setInterval(() => {
+                const targetSpeed = currentMode === 'SHAKE' ? engines.SHAKE * 3.6 : engines.DRIVE;
+                updateDisplay(targetSpeed);
+            }, 100);
         };
 
-        soundBtn.onclick = () => {
+        document.getElementById('sound-btn').onclick = function() {
             isSoundOn = !isSoundOn;
-            soundBtn.innerText = isSoundOn ? "SOUND ON" : "SOUND OFF";
-            soundBtn.classList.toggle('active');
+            this.innerText = isSoundOn ? "SOUND ON" : "SOUND OFF";
+            this.classList.toggle('active-sound');
             if (!isSoundOn) evAudio.volume = 0;
         };
 
-        function handleMotion(event) {
-            if (currentMode !== 'SHAKE') return;
-            const acc = event.acceleration;
-            if (!acc || acc.x === null) return;
-            const now = Date.now(), dt = (now - lastTime) / 1000;
-            lastTime = now;
-            const accMag = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
-            if (accMag > 0.4) rawSpeed += (accMag * dt) * 2.5;
-            rawSpeed *= 0.97;
-            updateUI(rawSpeed * 3.6);
-        }
-
-        function updateUI(kmh) {
-            const displayKmh = Math.min(Math.floor(kmh), maxSpeed);
-            speedEl.innerText = displayKmh;
-            const angle = ((displayKmh / maxSpeed) * (endAngle - startAngle)) + startAngle;
+        function updateDisplay(kmh) {
+            const val = Math.min(Math.max(kmh, 0), maxSpeed);
+            speedEl.innerText = Math.floor(val);
+            const angle = ((val / maxSpeed) * (endAngle - startAngle)) + startAngle;
             needleContainer.style.transform = `rotate(${angle}deg)`;
             
             if (isSoundOn) {
-                const rate = 0.8 + (displayKmh / 60);
-                evAudio.playbackRate = Math.min(rate, 3.5);
-                evAudio.volume = Math.min(0.6, 0.1 + (displayKmh / 150));
+                evAudio.playbackRate = Math.min(0.8 + (val / 60), 3.5);
+                evAudio.volume = Math.min(0.6, 0.1 + (val / 150));
             }
         }
     </script>
 </body>
 </html>
+
