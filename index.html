@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studio J - Real EV Speedometer</title>
+    <title>Studio J - Hybrid Speedometer</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -11,22 +11,36 @@
             --neon-glow: 0 0 15px rgba(255, 255, 255, 0.6);
         }
         body { margin: 0; background-color: #000; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Orbitron', sans-serif; overflow: hidden; }
+        
+        /* 모드 선택기 */
+        .mode-selector { margin-bottom: 20px; display: flex; border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; overflow: hidden; }
+        .mode-btn { padding: 8px 20px; background: transparent; color: white; border: none; cursor: pointer; font-family: 'Orbitron'; font-size: 12px; transition: 0.3s; }
+        .mode-btn.active { background: white; color: black; font-weight: bold; }
+
         #gauge-container { position: relative; width: 350px; height: 350px; display: flex; align-items: center; justify-content: center; }
         #face-container { position: absolute; width: 100%; height: 100%; }
         .tick { position: absolute; top: 0; left: calc(50% - 1px); width: 2px; height: 10px; background-color: rgba(255, 255, 255, 0.3); transform-origin: 0 175px; }
         .tick.major { height: 20px; width: 3px; background-color: white; box-shadow: var(--neon-glow); }
         .label { position: absolute; width: 40px; text-align: center; font-size: 14px; font-weight: 700; color: rgba(255, 255, 255, 0.8); transform: translate(-50%, -50%); }
+        
         #needle-container { position: absolute; width: 100%; height: 100%; transition: transform 0.1s linear; z-index: 10; }
-        #needle { position: absolute; top: 20px; left: calc(50% - 2px); width: 4px; height: 65px; background: linear-gradient(to bottom, white, rgba(255,255,255,0)); box-shadow: var(--neon-glow); border-radius: 2px; }
+        #needle { position: absolute; top: 20px; left: calc(50% - 2.5px); width: 5px; height: 70px; background: linear-gradient(to bottom, white, rgba(255,255,255,0)); box-shadow: var(--neon-glow); border-radius: 2px; }
+        
         #display { text-align: center; margin-top: 50px; }
-        #speed { font-size: 75px; text-shadow: var(--neon-glow); margin: 0; }
+        #speed { font-size: 80px; text-shadow: var(--neon-glow); margin: 0; }
         .unit { font-size: 14px; opacity: 0.5; letter-spacing: 2px; }
-        .controls { margin-top: 40px; display: flex; gap: 15px; flex-direction: column; align-items: center; }
-        button { padding: 10px 25px; font-family: 'Orbitron', sans-serif; background: transparent; color: white; border: 1px solid white; border-radius: 5px; cursor: pointer; transition: 0.2s; font-size: 14px; }
+
+        .controls { margin-top: 30px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        button.main-btn { padding: 12px 30px; background: transparent; color: white; border: 1px solid white; border-radius: 5px; cursor: pointer; font-family: 'Orbitron'; }
         button.active { background: white; color: black; box-shadow: var(--neon-glow); }
     </style>
 </head>
 <body>
+
+    <div class="mode-selector">
+        <button id="shake-mode-btn" class="mode-btn active">SHAKE</button>
+        <button id="drive-mode-btn" class="mode-btn">DRIVE</button>
+    </div>
 
     <div id="gauge-container">
         <div id="face-container"></div>
@@ -38,13 +52,11 @@
     </div>
 
     <div class="controls">
-        <button id="start-btn">IGNITION (START)</button>
-        <button id="sound-btn" style="display: none;">SOUND OFF</button>
+        <button id="start-btn" class="main-btn">IGNITION</button>
+        <button id="sound-btn" class="main-btn" style="display: none;">SOUND OFF</button>
     </div>
 
-    <audio id="ev-audio" loop preload="auto">
-        <source src="ev_sound.mp3" type="audio/mpeg">
-    </audio>
+    <audio id="ev-audio" loop><source src="ev_sound.mp3" type="audio/mpeg"></audio>
 
     <script>
         const face = document.getElementById('face-container');
@@ -53,9 +65,16 @@
         const startBtn = document.getElementById('start-btn');
         const soundBtn = document.getElementById('sound-btn');
         const evAudio = document.getElementById('ev-audio');
+        const shakeBtn = document.getElementById('shake-mode-btn');
+        const driveBtn = document.getElementById('drive-mode-btn');
 
+        let currentMode = 'SHAKE'; 
+        let isSoundOn = false;
+        let rawSpeed = 0;
+        let lastTime = Date.now();
         const startAngle = -120, endAngle = 120, maxSpeed = 200;
 
+        // 눈금 초기화
         for (let s = 0; s <= maxSpeed; s += 5) {
             const angle = ((s / maxSpeed) * (endAngle - startAngle)) + startAngle;
             const tick = document.createElement('div');
@@ -73,31 +92,42 @@
             }
         }
 
-        let isSoundOn = false;
-        let rawSpeed = 0;
-        let lastTime = Date.now();
+        // 모드 변경 클릭 이벤트
+        shakeBtn.onclick = () => { currentMode = 'SHAKE'; shakeBtn.classList.add('active'); driveBtn.classList.remove('active'); };
+        driveBtn.onclick = () => { currentMode = 'DRIVE'; driveBtn.classList.add('active'); shakeBtn.classList.remove('active'); };
 
-        startBtn.addEventListener('click', async () => {
+        startBtn.onclick = async () => {
             startBtn.style.display = 'none';
             soundBtn.style.display = 'block';
-            evAudio.play().then(() => { evAudio.volume = 0; }); 
-            
-            if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                const res = await DeviceMotionEvent.requestPermission();
-                if (res === 'granted') window.addEventListener('devicemotion', handleMotion);
-            } else {
-                window.addEventListener('devicemotion', handleMotion);
-            }
-        });
+            evAudio.play().then(() => { evAudio.volume = 0; });
 
-        soundBtn.addEventListener('click', () => {
+            // 가속도 센서 권한 (SHAKE 모드용)
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                await DeviceMotionEvent.requestPermission();
+            }
+            window.addEventListener('devicemotion', handleMotion);
+
+            // GPS 위치 권한 (DRIVE 모드용)
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition((pos) => {
+                    if (currentMode === 'DRIVE') {
+                        // speed는 m/s 단위로 오므로 3.6을 곱해 km/h로 변환
+                        const gpsSpeed = pos.coords.speed || 0; 
+                        updateUI(gpsSpeed * 3.6);
+                    }
+                }, (err) => console.log(err), { enableHighAccuracy: true });
+            }
+        };
+
+        soundBtn.onclick = () => {
             isSoundOn = !isSoundOn;
             soundBtn.innerText = isSoundOn ? "SOUND ON" : "SOUND OFF";
             soundBtn.classList.toggle('active');
             if (!isSoundOn) evAudio.volume = 0;
-        });
+        };
 
         function handleMotion(event) {
+            if (currentMode !== 'SHAKE') return;
             const acc = event.acceleration;
             if (!acc || acc.x === null) return;
             const now = Date.now(), dt = (now - lastTime) / 1000;
@@ -105,17 +135,7 @@
             const accMag = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
             if (accMag > 0.4) rawSpeed += (accMag * dt) * 2.5;
             rawSpeed *= 0.97;
-            
-            const kmh = rawSpeed * 3.6;
-            updateUI(kmh);
-            
-            if (isSoundOn) {
-                // 속도가 0일 때도 아주 낮은 피치로 소리가 깔리게 설정
-                const rate = 0.8 + (kmh / 60); 
-                evAudio.playbackRate = Math.min(rate, 3.5);
-                // 볼륨은 속도에 따라 최대 0.6까지
-                evAudio.volume = Math.min(0.6, 0.1 + (kmh / 150));
-            }
+            updateUI(rawSpeed * 3.6);
         }
 
         function updateUI(kmh) {
@@ -123,6 +143,12 @@
             speedEl.innerText = displayKmh;
             const angle = ((displayKmh / maxSpeed) * (endAngle - startAngle)) + startAngle;
             needleContainer.style.transform = `rotate(${angle}deg)`;
+            
+            if (isSoundOn) {
+                const rate = 0.8 + (displayKmh / 60);
+                evAudio.playbackRate = Math.min(rate, 3.5);
+                evAudio.volume = Math.min(0.6, 0.1 + (displayKmh / 150));
+            }
         }
     </script>
 </body>
